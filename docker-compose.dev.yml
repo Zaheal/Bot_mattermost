@@ -1,0 +1,69 @@
+services:
+  bot:
+    container_name: bot
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mattermost
+      - tarantool
+    volumes:
+      - .:/app
+
+  mattermost:
+    container_name: mattermost
+    image: mattermost/mattermost-team-edition:7.8
+    depends_on:
+      - postgres
+    ports:
+      - "8065:8065"
+    environment:
+      - MM_SQLSETTINGS_DRIVERNAME=${MM_SQLSETTINGS_DRIVERNAME}
+      - MM_SQLSETTINGS_DATASOURCE=${MM_SQLSETTINGS_DATASOURCE}
+      - MM_SERVICESETTINGS_SITEURL=${MM_SERVICESETTINGS_SITEURL}
+    volumes:
+      - mattermost-data:/mattermost/data
+      - mattermost-config:/mattermost/config
+    
+  postgres:
+    container_name: postgres
+    image: postgres:16.3
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 4G
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  tarantool:
+    container_name: tarantool
+    image: tarantool/tarantool:3.1
+    environment:
+      - TARANTOOL_USER_NAME=${TARANTOOL_USER_NAME}
+      - TARANTOOL_USER_PASSWORD=${TARANTOOL_USER_PASSWORD}
+    ports:
+      - "3301:3301"
+    command: tarantool /opt/tarantool/config.lua
+    volumes:
+      - ./tarantool-config.lua:/opt/tarantool/config.lua:ro
+
+
+volumes:
+  postgres_data:
+  mattermost-data:
+  mattermost-config:
